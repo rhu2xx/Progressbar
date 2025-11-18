@@ -3,7 +3,7 @@ import os
 import datetime
 import winreg
 from PyQt6.QtCore import (
-    Qt, QTimer, QPoint, QRect
+    Qt, QTimer, QPoint, QRect, QTime
 )
 from PyQt6.QtGui import (
     QAction, QPainter, QColor, QPen, QMouseEvent, QFont, QIcon, QPixmap
@@ -78,36 +78,53 @@ TEXTS = {
 # 时间段设置对话框
 # ------------------------------
 class TimeRangeDialog(QDialog):
-    def __init__(self, start_time: str, end_time: str, lang: str = 'zh'):
-        super().__init__()
-        self.lang = lang
-        self.texts = TEXTS[lang]
-        self.setWindowTitle(self.texts['time_range_title'])
+    def __init__(self, start_time: str, end_time: str, lang: str = 'zh', parent=None):
+        super().__init__(parent)
+        try:
+            self.lang = lang
+            self.texts = TEXTS[lang]
+            self.setWindowTitle(self.texts['time_range_title'])
+            
+            # 设置窗口标志，确保对话框可见
+            self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
+            
+            # 设置最小尺寸
+            self.setMinimumWidth(300)
 
-        layout = QVBoxLayout()
+            layout = QVBoxLayout()
 
-        self.label1 = QLabel(self.texts['start_time'])
-        self.start_edit = QTimeEdit()
-        self.start_edit.setDisplayFormat("HH:mm")
-        h, m = map(int, start_time.split(":"))
-        self.start_edit.setTime(datetime.time(hour=h, minute=m))
+            self.label1 = QLabel(self.texts['start_time'])
+            self.start_edit = QTimeEdit()
+            self.start_edit.setDisplayFormat("HH:mm")
+            h, m = map(int, start_time.split(":"))
+            self.start_edit.setTime(QTime(h, m))
 
-        self.label2 = QLabel(self.texts['end_time'])
-        self.end_edit = QTimeEdit()
-        self.end_edit.setDisplayFormat("HH:mm")
-        h, m = map(int, end_time.split(":"))
-        self.end_edit.setTime(datetime.time(hour=h, minute=m))
+            self.label2 = QLabel(self.texts['end_time'])
+            self.end_edit = QTimeEdit()
+            self.end_edit.setDisplayFormat("HH:mm")
+            h, m = map(int, end_time.split(":"))
+            self.end_edit.setTime(QTime(h, m))
 
-        self.ok_btn = QPushButton(self.texts['ok'])
-        self.ok_btn.clicked.connect(self.accept)
+            self.ok_btn = QPushButton(self.texts['ok'])
+            self.ok_btn.clicked.connect(self.accept)
 
-        layout.addWidget(self.label1)
-        layout.addWidget(self.start_edit)
-        layout.addWidget(self.label2)
-        layout.addWidget(self.end_edit)
-        layout.addWidget(self.ok_btn)
+            layout.addWidget(self.label1)
+            layout.addWidget(self.start_edit)
+            layout.addWidget(self.label2)
+            layout.addWidget(self.end_edit)
+            layout.addWidget(self.ok_btn)
 
-        self.setLayout(layout)
+            self.setLayout(layout)
+            
+            # 如果有父窗口，将对话框居中显示在父窗口附近
+            if parent:
+                parent_rect = parent.geometry()
+                self.move(parent_rect.center().x() - 150, parent_rect.center().y() - 100)
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise
 
     def get_times(self):
         return (
@@ -375,10 +392,16 @@ class ProgressWidget(QWidget):
     # 菜单功能
     # ------------------------------
     def edit_time(self):
-        dlg = TimeRangeDialog(self.start_time, self.end_time, self.language)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            self.start_time, self.end_time = dlg.get_times()
-            self.update()
+        try:
+            dlg = TimeRangeDialog(self.start_time, self.end_time, self.language, self)
+            result = dlg.exec()
+            if result == QDialog.DialogCode.Accepted:
+                self.start_time, self.end_time = dlg.get_times()
+                self.update()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Time setting error: {str(e)}\n{type(e).__name__}")
+            import traceback
+            traceback.print_exc()
 
     def edit_size(self):
         dlg = QDialog(self)
